@@ -1,9 +1,0 @@
-fastapi[all]
-flake8
-flake8-docstrings
-httpx
-isort
-Jinja2
-pre-commit
-pytest
-trio
