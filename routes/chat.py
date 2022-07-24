@@ -1,26 +1,29 @@
-from fastapi import APIRouter, WebSocket, Request
+from fastapi import APIRouter, WebSocket, Request, WebSocketDisconnect
 from fastapi.templating import Jinja2Templates
+from .utils import ConnectionManager
 
 
 router = APIRouter()
 
 templates = Jinja2Templates(directory="src/templates")
 
+manager = ConnectionManager()
+
 
 @router.get("/")
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-websocket_list = []
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
 
-    if websocket not in websocket_list:
-        websocket_list.append(websocket)
+@router.websocket("/ws/{client_name}")
+async def websocket_endpoint(websocket: WebSocket, client_name: str):
+    await manager.connect(client_name, websocket)
 
-    while True:
-        content = await websocket.receive_text()
-        
-        for ws in websocket_list:
-            await ws.send_text(content)
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await manager.broadcast(client_name, websocket, message)
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        await manager.broadcast(client_name, websocket, disconnected=True)
